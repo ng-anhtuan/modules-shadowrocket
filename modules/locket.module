@@ -1,0 +1,12 @@
+#!name=Locket Gold Unlock By Anh Tuan
+#!desc=Unlock Locket Gold
+#!author=Anh Tuan
+#Update: 22/08/2025
+
+[MITM]
+hostname = %APPEND% api.revenuecat.com
+
+[Script]
+# ~ Locket Gold Unlock
+revenuecat = type=http-response, pattern=^https:\/\/api\.revenuecat\.com\/.+\/(receipts$|subscribers\/[^/]+$), script-path=https://raw.githubusercontent.com/ng-anhtuan/modules-shadowrocket/refs/heads/main/js/locket/locket.js, requires-body=true, max-size=-1, timeout=60
+deleteHeader = type=http-request, pattern=^https:\/\/api\.revenuecat\.com\/.+\/(receipts|subscribers), script-path=https://raw.githubusercontent.com/ng-anhtuan/modules-shadowrocket/refs/heads/main/js/locket/deleteHeader.js, timeout=60
