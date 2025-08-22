@@ -1,39 +1,30 @@
+
 function stripAds(obj) {
-  if (!obj || typeof obj !== 'object') return;
+  if (!obj || typeof obj !== "object") return;
 
-  const adKeys = new Set([
-    'adPlacements','adBreaks','adSlots','adInfo','adEngagement',
-    'playerAds','ads','adPayload','adSignalsInfo'
-  ]);
+  const adKeys = [
+    "adPlacements", "adBreaks", "adSlots", "adInfo", "adEngagement",
+    "playerAds", "ads", "adPayload", "adSafetyReason", "promotedItem"
+  ];
 
-  for (const k of Object.keys(obj)) {
+  for (const k in obj) {
     try {
-      if (adKeys.has(k)) {
+      if (adKeys.includes(k) || /ad|promotion/i.test(k)) {
         delete obj[k];
         continue;
       }
       const v = obj[k];
       if (Array.isArray(v)) {
-        for (let i = v.length - 1; i >= 0; i--) {
-          const item = v[i];
-          if (item && typeof item === 'object') {
-            // Loại object có key ads
-            const keys = Object.keys(item);
-            if (keys.some(x => adKeys.has(x) || /ad|promotion/i.test(x))) {
-              v.splice(i, 1);
-              continue;
-            }
-            stripAds(item);
+        obj[k] = v.filter(it => {
+          if (typeof it === "object") {
+            const s = JSON.stringify(it);
+            if (/\"ad|promotion\"/i.test(s)) return false;
+            stripAds(it);
           }
-        }
-      } else if (v && typeof v === 'object') {
-        // Loại object thuần quảng cáo
-        const keys = Object.keys(v);
-        if (keys.some(x => adKeys.has(x) || /ad|promotion/i.test(x))) {
-          delete obj[k];
-        } else {
-          stripAds(v);
-        }
+          return true;
+        });
+      } else if (typeof v === "object") {
+        stripAds(v);
       }
     } catch (_) {}
   }
@@ -41,15 +32,34 @@ function stripAds(obj) {
 
 try {
   const isBinary = $response?.bodyBytes && !$response.body;
-  let text = isBinary ? new TextDecoder('utf-8').decode($response.bodyBytes) : $response.body || '{}';
+  let text = isBinary ? new TextDecoder("utf-8").decode($response.bodyBytes) : $response.body || "{}";
   let data = JSON.parse(text);
 
-  // Một số response đặt payload trong data.playabilityStatus, streamingData, playerAds
+  // Xóa quảng cáo
   stripAds(data);
 
-  // Dọn cờ gợi ý quảng cáo nếu có
-  if (data?.playbackTracking) delete data.playbackTracking;
-  if (data?.adSafetyReason) delete data.adSafetyReason;
+  // Unlock Premium-like features
+  if (data?.playabilityStatus) {
+    data.playabilityStatus.miniplayer = { miniplayerRenderer: { playbackMode: "VISIBLE" } };
+  }
+  if (data?.streamingData) {
+    data.streamingData.adaptiveFormats?.forEach(f => {
+      if (f.itag === 140) f.audioQuality = "AUDIO_QUALITY_MEDIUM"; // giữ nhạc ổn định
+    });
+  }
+  if (data?.playerConfig) {
+    data.playerConfig.backgroundPlayEnabled = true;
+  }
+  if (data?.playbackTracking) {
+    delete data.playbackTracking; // bớt tracking
+  }
+
+  // Gắn cờ background/PiP
+  if (data?.responseContext) {
+    data.responseContext.mainAppWebResponseContext = data.responseContext.mainAppWebResponseContext || {};
+    data.responseContext.mainAppWebResponseContext.backgroundPlayEnabled = true;
+    data.responseContext.mainAppWebResponseContext.pipEnabled = true;
+  }
 
   const out = JSON.stringify(data);
   if (isBinary) {
@@ -58,6 +68,6 @@ try {
     $done({ body: out });
   }
 } catch (e) {
-  console.log('[yt_player_adblock] parse error:', e);
+  console.log("[YouTube.js] error:", e);
   $done({});
 }
