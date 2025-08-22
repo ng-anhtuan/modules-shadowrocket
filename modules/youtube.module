@@ -1,0 +1,29 @@
+#!name=YouTube Adblock & Privacy (Safe)
+#!desc=Chặn quảng cáo & giảm telemetry cho YouTube App/Web (không can thiệp Premium)
+#!author=Anh Tuan
+#!version=1.0.0
+#!date=2025-08-22
+
+[MITM]
+# MITM chỉ những domain cần để lọc nội dung quảng cáo/telemetry
+hostname = %APPEND% youtubei.googleapis.com, www.youtube.com, s.youtube.com, *.googlevideo.com
+
+[Rule]
+# Giảm bớt hạ tầng quảng cáo/phân phối ads của Google (mức an toàn)
+DOMAIN-SUFFIX,adservice.google.com,REJECT
+DOMAIN-SUFFIX,doubleclick.net,REJECT
+DOMAIN-SUFFIX,googlesyndication.com,REJECT
+DOMAIN-SUFFIX,googleads.g.doubleclick.net,REJECT
+
+[URL Rewrite]
+# Vô hiệu các endpoint thống kê quảng cáo từ web YouTube (trả 200 rỗng)
+^https?://(www|s)\.youtube\.com/(pagead|ptracking|api/stats/ads) _ reject-200
+^https?://s\.youtube\.com/api/stats/qoe\?adcontext _ reject-200
+# Không đụng tới tham số phát video để tránh ảnh hưởng playback
+
+[Script]
+# 1) Loại bỏ trường quảng cáo trong player response (App YouTube)
+yt_player_adblock = type=http-response,pattern=^https://youtubei\.googleapis\.com/youtubei/v1/player,requires-body=1,max-size=-1,timeout=60,engine=script,script-path=https://raw.githubusercontent.com/ng-anhtuan/modules-shadowrocket/refs/heads/main/js/youtube/youtube.js
+
+# 2) Giảm đề xuất/slot quảng cáo trong next/browse/guide (App YouTube)
+yt_feed_sanitize = type=http-response,pattern=^https://youtubei\.googleapis\.com/youtubei/v1/(next|browse|reel/reel_watch_sequence|guide),requires-body=1,max-size=-1,timeout=60,engine=script,script-path=https://raw.githubusercontent.com/ng-anhtuan/modules-shadowrocket/refs/heads/main/js/youtube/yt_feed_sanitize.js
